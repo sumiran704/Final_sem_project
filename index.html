@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air quality Monitoring system</title>
+    <link rel="stylesheet" href="/static/style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    </head>
+
+<body>
+
+<h1>🌍 Smart Air Quality Monitoring</h1>
+
+<button onclick="toggleMode()">🌙 Toggle Mode</button>
+
+<div class="container">
+
+    <!-- 🔥 LIVE AQI -->
+    <h2>Live AQI</h2>
+    <input id="city" placeholder="Enter city (Delhi)">
+    <button onclick="getLiveAQI()">Get Live AQI</button>
+    <h3 id="liveResult"></h3>
+
+    <!-- 🤖 Prediction -->
+    <h2>AI Prediction</h2>
+    <input id="pm2_5" placeholder="PM2.5">
+    <input id="pm10" placeholder="PM10">
+    <input id="no2" placeholder="NO2">
+    <input id="co" placeholder="CO">
+    <input id="o3" placeholder="O3">
+    <button onclick="predictAQI()">Predict</button>
+
+    <h3 id="result"></h3>
+
+</div>
+
+<!-- 📊 Chart -->
+<canvas id="chart"></canvas>
+
+<!-- 🌐 3D Globe -->
+<div id="globe"></div>
+
+<!-- 🗺️ Google Map -->
+<iframe
+    width="600"
+    height="400"
+    style="border:0"
+    loading="lazy"
+    allowfullscreen
+    src="https://www.google.com/maps?q=Delhi&output=embed">
+</iframe>
+
+<script>
+
+// 🌍 LIVE AQI
+async function getLiveAQI() {
+    let city = document.getElementById("city").value;
+    let res = await fetch(`/live_aqi/${city}`);
+    let data = await res.json();
+
+    document.getElementById("liveResult").innerText =
+        `City: ${data.city} AQI: ${data.aqi}`;
+
+    speakAlert(data.aqi);
+}
+
+// 🔊 VOICE ALERT
+function speakAlert(aqi) {
+    let msg = new SpeechSynthesisUtterance();
+
+    if (aqi > 200) msg.text = "Warning! Air quality is hazardous";
+    else if (aqi > 100) msg.text = "Air quality is moderate";
+    else msg.text = "Air quality is good";
+
+    speechSynthesis.speak(msg);
+}
+
+// 🤖 ML Prediction
+async function predictAQI() {
+    let data = {
+        pm2_5: pm2_5.value,
+        pm10: pm10.value,
+        no2: no2.value,
+        co: co.value,
+        o3: o3.value
+    };
+
+    let res = await fetch("/predict", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    });
+
+    let result = await res.json();
+    document.getElementById("result").innerText = "AQI: " + result.aqi;
+}
+
+// 📊 Chart
+async function loadChart() {
+    let res = await fetch("/data");
+    let data = await res.json();
+
+    new Chart(chart, {
+        type: "line",
+        data: {
+            labels: data.pm2_5,
+            datasets: [{
+                label: "AQI Trend",
+                data: data.aqi
+            }]
+        }
+    });
+}
+loadChart();
+
+// 🌙 DARK MODE
+function toggleMode() {
+    document.body.classList.toggle("light");
+}
+
+// 🌐 3D GLOBE
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer();
+
+renderer.setSize(400, 400);
+document.getElementById("globe").appendChild(renderer.domElement);
+
+let geometry = new THREE.SphereGeometry(2, 32, 32);
+let material = new THREE.MeshBasicMaterial({wireframe: true});
+let globe = new THREE.Mesh(geometry, material);
+
+scene.add(globe);
+camera.position.z = 5;
+
+function animate() {
+    requestAnimationFrame(animate);
+    globe.rotation.y += 0.01;
+    renderer.render(scene, camera);
+}
+animate();
+
+</script>
+
+</body>
+</html>
